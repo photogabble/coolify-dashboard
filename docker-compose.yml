@@ -1,0 +1,61 @@
+version: '3.6'
+services:
+  grafana:
+    image: grafana/grafana-oss
+    environment:
+      - SERVICE_FQDN_GRAFANA_3000
+      - 'GF_SERVER_ROOT_URL=${SERVICE_FQDN_GRAFANA}'
+      - 'GF_SERVER_DOMAIN=${SERVICE_FQDN_GRAFANA}'
+      - 'GF_SECURITY_ADMIN_PASSWORD=${SERVICE_PASSWORD_GRAFANA}'
+    volumes:
+      - 'grafana-data:/var/lib/grafana'
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - '-f'
+        - 'http://127.0.0.1:3000/api/health'
+      interval: 5s
+      timeout: 20s
+      retries: 10
+    depends_on:
+      - influxdb
+      - telegraf
+    links:
+      - influxdb
+  influxdb:
+    image: 'influxdb:alpine'
+    environment:
+      - INFLUXDB_LOGGING_LEVEL=error
+    volumes:
+      - 'influx-data:/var/lib/influxdb'
+    ports:
+      - '127.0.0.1:8086:8086'
+  telegraf:
+    image: 'telegraf:alpine'
+    privileged: true
+    environment:
+      - HOST_ETC=/hostfs/etc
+      - HOST_PROC=/hostfs/proc
+      - HOST_SYS=/hostfs/sys
+      - HOST_VAR=/hostfs/var
+      - HOST_RUN=/hostfs/run
+      - HOST_MOUNT_PREFIX=/hostfs
+    volumes:
+      - './telegraf/etc/telegraf.conf:/etc/telegraf/telegraf.conf:ro'
+      - '/var/run/docker.sock:/var/run/docker.sock:ro'
+      - '/:/hostfs:ro'
+      - '/etc:/hostfs/etc:ro'
+      - '/proc:/hostfs/proc:ro'
+      - '/sys:/hostfs/sys:ro'
+      - '/var:/hostfs/var:ro'
+      - '/run:/hostfs/run:ro'
+    ports:
+      - '127.0.0.1:8125:8125/udp'
+    depends_on:
+      - influxdb
+    links:
+      - influxdb
+volumes:
+  grafana-data: {  }
+  influx-data: {  }
